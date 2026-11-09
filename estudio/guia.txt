@@ -1,0 +1,49 @@
+INSTITUTO PROFESIONAL VIRGINIO GÓMEZ
+Sede Concepción | Asignatura: Construcción de Software (PA26-2026)
+GUÍA DE LABORATORIO — SEMANA 11
+    Unidad III: Integración de Aplicaciones con Bases de Datos
+    Caso Práctico de Aplicación: Pizzería Bella Italia (Persistencia en SQL Server Express)
+    🎯 RESULTADOS DE APRENDIZAJE EVALUADOS:
+
+        * D2.C2-RA3: Integra una aplicación de alto nivel con una base de datos relacional para la gestión persistente de información.
+        * D2.C1-RA3: Construye el módulo de acceso a datos aplicando principios de diseño y patrones de arquitectura desacoplada.
+
+        1. ESCENARIO DE NEGOCIO: PIZZERÍA BELLA ITALIA
+            En la Unidad II implementamos el registro de pedidos de pizza utilizando listas en memoria (List). 
+            Sin embargo, al cerrar el sistema, la información se pierde por completo. En esta sesión migraremos 
+            la persistencia hacia una base de datos relacional en SQL Server Express 
+            (.\SQLEXPRESS) utilizando el proveedor oficial ADO.NET (Microsoft.Data.SqlClient) en Visual Studio 2026.
+
+        2. PASO A PASO: CONFIGURACIÓN EN VISUAL STUDIO 2026
+            Abrir el Explorador de Servidores: 
+                  En Visual Studio 2026, presione Ctrl + Alt + S (o menú Ver → Explorador de Servidores).
+            Crear la Base de Datos: 
+                  Haga clic secundario en Conexiones de datos → Crear nueva base de datos de SQL Server...
+                    - Servidor: .\SQLEXPRESS
+                    - Nombre BD: PizzeriaDB
+
+            Crear Tabla Pedidos: 
+                Haga clic derecho en la conexión creada / Tablas → Nueva Tabla 
+                y genere la Tabla Pedidos según la siguiente especificación:
+        
+                CREATE TABLE Pedidos (
+                Id INT IDENTITY(1,1) PRIMARY KEY,
+                Cliente NVARCHAR(100) NOT NULL,
+                Telefono NVARCHAR(20) NULL,
+                TamanoNombre NVARCHAR(50) NOT NULL,
+                TotalPagar INT NOT NULL,
+                FechaRegistro DATETIME DEFAULT GETDATE()
+                );
+
+            Instalar Paquete NuGet: 
+                Haga clic derecho en el proyecto → Administrar paquetes NuGet e instale 
+                Microsoft.Data.SqlClient.
+                //EN CONSOLA 
+                    Install-Package System.Data.SqlClient
+
+        COMPARATIVA: MODELO CONECTADO VS. MODELO DESCONECTADO
+            CRITERIO             | MODELO CONECTADO (SqlDataReader)                             | MODELO DESCONECTADO (DataTable)
+            ---------------------+---------------------------------------------------------+-----------------------------------------
+            Estado de Conexión   | Permanecen abiertas mientras lee datos.                      | Abre, llena el DataTable y se cierra.
+            Modo de Lectura      | Secuencial y rápida de solo lectura (while (reader.Read())). | Descarga completa a memoria RAM local.
+            Control GUI Idóneo   | ComboBox / Llenado rápido de objetos.                        | DataGridView (Enlace directo a tablas).

@@ -1,0 +1,208 @@
+================================================================================
+					CONCEPTOS CLAROS DE ADO.NET
+================================================================================
+
+1. ¿QUÉ ES ADO.NET?
+================================================================================
+Es una librería de .NET que permite comunicarte con una base de datos SQL 
+usando código C#. Sin intermediarios (como Entity Framework).
+
+Aplicación C# ←→ ADO.NET ←→ SQL Server
+
+
+2. FLUJO BÁSICO DE GRABACIÓN
+================================================================================
+PASO 1: ABRIR CONEXIÓN
+		↓
+PASO 2: CREAR COMANDO SQL
+		↓
+PASO 3: AGREGAR PARÁMETROS (valores)
+		↓
+PASO 4: EJECUTAR EL COMANDO
+		↓
+PASO 5: CERRAR CONEXIÓN
+
+
+3. COMPONENTES PRINCIPALES
+================================================================================
+
+A) SqlConnection - La carretera
+----------------------------------
+	SqlConnection conexion = new("Server=localhost;Database=PizzeriaDB;");
+	//forma correcta 
+	SqlConnection conexion = new(
+		  "Server=localhost;Database=PizzeriaBellaItalia;Integrated Security=True;Encrypt=False;"
+	);
+
+	//con contraseña 
+		SqlConnection conexion = new(
+		"Server=localhost;Database=PizzeriaBellaItalia;User Id=sa;Password=tuContraseña;Encrypt=False;"
+		);
+
+	conexion.Open();   // Abrir la conexión
+
+¿Para qué? Establece el puente entre tu app y SQL Server.
+
+B) SqlCommand - El vehículo
+----------------------------------
+	SqlCommand comando = new("INSERT INTO Pedidos VALUES (@Cliente, @Total)", 
+	conexion);
+
+¿Para qué? Envía la orden SQL a ejecutar.
+
+
+C) SqlParameter - El pasajero
+----------------------------------
+	comando.Parameters.AddWithValue("@Cliente", "Juan");
+	comando.Parameters.AddWithValue("@Total", 25000);
+
+¿Para qué? Lleva los valores de manera segura (sin inyección SQL).
+
+
+4. INSERTAR DATOS - PASO A PASO
+================================================================================
+
+// 1. ABRIR CONEXIÓN
+using (SqlConnection conexion = new("Server=localhost;Database=PizzeriaBellaItalia;"))
+{
+	conexion.Open();  // ← Abre el puente
+
+	// 2. CREAR COMANDO SQL
+	using (SqlCommand comando = new(
+		"INSERT INTO Pedidos (Cliente, Telefono, TotalPagar) VALUES (@Cliente, @Telefono, @Total)",
+		conexion))  // ← Asigna la conexión al comando
+	{
+		// 3. AGREGAR PARÁMETROS (valores)
+		comando.Parameters.AddWithValue("@Cliente", pedido.Cliente);
+		comando.Parameters.AddWithValue("@Telefono", pedido.Telefono);
+		comando.Parameters.AddWithValue("@Total", pedido.CalcularTotalPagar());
+
+		// 4. EJECUTAR
+		int filasAfectadas = comando.ExecuteNonQuery();  // ← Ejecuta el INSERT
+
+		// 5. VERIFICAR RESULTADO
+		if (filasAfectadas > 0)
+			MessageBox.Show("✅ Guardado");
+		else
+			MessageBox.Show("❌ No se grabó");
+	}
+	// ← La conexión se cierra automáticamente (using)
+}
+
+
+5. ¿POR QUÉ PARÁMETROS? (SEGURIDAD)
+================================================================================
+
+❌ MAL - Vulnerable a inyección SQL:
+-----------------------------------
+	string query = "INSERT INTO Pedidos VALUES ('" + cliente + "', " + total + ")";
+	// Si cliente = "'; DELETE FROM Pedidos; --"  → ¡Desastre!
+
+
+✅ BIEN - Seguro con parámetros:
+--------------------------------
+	comando.Parameters.AddWithValue("@Cliente", cliente);
+	// SQL interpreta como texto, no como código
+
+
+6. LECTURA DE DATOS
+================================================================================
+
+using (SqlConnection conexion = new("..."))
+{
+	conexion.Open();
+
+	using (SqlCommand comando = new("SELECT * FROM Pedidos", conexion))
+	{
+		using (SqlDataReader lector = comando.ExecuteReader())
+		{
+			while (lector.Read())
+			{
+				string cliente = lector["Cliente"].ToString();
+				int total = (int)lector["TotalPagar"];
+
+				Console.WriteLine($"{cliente} - ${total}");
+			}
+		}
+	}
+}
+
+
+7. CICLO DE VIDA (USANDO USING)
+================================================================================
+
+using (SqlConnection conexion = new(...))
+{
+	// ← COMIENZA (Open automático si es necesario)
+
+	// Tu código aquí
+
+} // ← TERMINA (Dispose + Close automático)
+
+¿Para qué? Evita fugas de memoria. Cierra automáticamente.
+
+
+8. COMPARACIÓN: TRES FORMAS DE GRABAR
+================================================================================
+
+┌─────────────────┬──────────┬────────────┬──────────┐
+│ Método          │ Velocidad│ Complejidad│ Seguridad│
+├─────────────────┼──────────┼────────────┼──────────┤
+│ ADO.NET         │ ⚡ Rápido │ Medio      │ ✅ Alta  │
+│ Entity Framework│ Normal   │ Baja       │ ✅ Alta  │
+│ SQL directo     │ ⚡ Rápido │ Alto       │ ❌ Baja  │
+└─────────────────┴──────────┴────────────┴──────────┘
+
+
+9. ERRORES COMUNES
+================================================================================
+
+❌ Olvida parámetro
+-------------------
+	comando.Parameters.AddWithValue("@Cliente", cliente);
+	// Pero el SQL dice: (@Cliente, @Telefono)
+	// → Error: Parámetro faltante
+
+
+❌ Olvida cerrar conexión
+-------------------
+	SqlConnection conexion = new(...);
+	conexion.Open();
+	// ... código
+	// No la cierra → Fuga de recursos
+
+
+❌ Tipo de dato incorrecto
+-------------------
+	comando.Parameters.AddWithValue("@Total", "25000");  // String
+	// Pero Total es INT → Error de conversión
+
+
+10. RESUMEN FINAL
+================================================================================
+
+Para GRABAR un pedido con ADO.NET:
+
+1. Abre conexión
+2. Escribe INSERT (con @parámetros)
+3. Llena los parámetros con AddWithValue()
+4. Ejecuta con ExecuteNonQuery()
+5. Cierra automáticamente (using)
+
+Todo protegido contra inyección SQL ✅
+
+
+================================================================================
+							  NOTAS IMPORTANTES
+================================================================================
+
+• SqlConnection → Conecta con BD
+• SqlCommand → Ejecuta SQL
+• SqlParameter → Datos seguros (@nombre)
+• ExecuteNonQuery() → Para INSERT, UPDATE, DELETE
+• ExecuteReader() → Para SELECT (lectura)
+• using() → Cierra automáticamente
+
+================================================================================
+Documento generado para aprendizaje de ADO.NET en .NET 10
+================================================================================

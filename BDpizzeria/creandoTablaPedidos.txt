@@ -1,0 +1,25 @@
+CREATE TABLE Pedidos
+(
+    IdPedido INT IDENTITY(1,1) PRIMARY KEY,
+    Cliente NVARCHAR(100) NOT NULL,
+    Telefono NVARCHAR(30) NOT NULL,
+    TamanoNombre NVARCHAR(50) NOT NULL,
+    PrecioBaseTamano INT NOT NULL,
+    MasaNombre NVARCHAR(50) NOT NULL,
+    RecargoMasa INT NOT NULL,
+    QuesoExtra BIT NOT NULL DEFAULT 0,
+    Pepperoni BIT NOT NULL DEFAULT 0,
+    Champinones BIT NOT NULL DEFAULT 0,
+    Aceitunas BIT NOT NULL DEFAULT 0,
+    Tocino BIT NOT NULL DEFAULT 0,
+    EsDelivery BIT NOT NULL DEFAULT 0,
+    AplicaConvenioEstudiante BIT NOT NULL DEFAULT 0,
+    CostoIngredientes INT NOT NULL DEFAULT 0,
+    SubtotalPizza INT NOT NULL DEFAULT 0,
+    MontoDescuento INT DEFAULT 0,
+    CostoDelivery INT DEFAULT 0,
+    NetoAfecto INT NOT NULL DEFAULT 0,
+    MontoIva INT NOT NULL DEFAULT 0,
+    TotalPagar INT NOT NULL DEFAULT 0,
+    FechaCreacion DATETIME DEFAULT GETDATE()
+);

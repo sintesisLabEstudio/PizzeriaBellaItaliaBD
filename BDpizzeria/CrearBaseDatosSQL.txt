@@ -1,0 +1,313 @@
+-- ============================================================================
+-- SCRIPT DE CREACIÓN DE BASE DE DATOS - PIZZERÍA BELLA ITALIA
+-- ============================================================================
+-- Base de datos para gestionar pedidos de pizzas con tamaños, masas e ingredientes
+-- ============================================================================
+-- 1. CREAR LA BASE DE DATOS
+-- ============================================================================
+IF EXISTS (SELECT * FROM sys.databases WHERE name = 'PizzeriaBellaItalia')
+BEGIN
+	ALTER DATABASE PizzeriaBellaItalia SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+	DROP DATABASE PizzeriaBellaItalia;
+END
+GO
+
+CREATE DATABASE PizzeriaBellaItalia;
+GO
+
+USE PizzeriaBellaItalia;
+GO
+
+-- ============================================================================
+-- 2. CREAR TABLAS
+-- ============================================================================
+
+-- Tabla de Tamaños de Pizza
+CREATE TABLE Tamanos
+(
+	TamanoId INT PRIMARY KEY IDENTITY(1,1),
+	TamanoNombre NVARCHAR(50) NOT NULL UNIQUE,
+	PrecioBaseTamano INT NOT NULL,
+	Activo BIT DEFAULT 1,
+	FechaCreacion DATETIME DEFAULT GETDATE()
+);
+
+-- Tabla de Masas
+CREATE TABLE Masas
+(
+	MasaId INT PRIMARY KEY IDENTITY(1,1),
+	MasaNombre NVARCHAR(50) NOT NULL UNIQUE,
+	RecargoMasa INT NOT NULL,
+	Activo BIT DEFAULT 1,
+	FechaCreacion DATETIME DEFAULT GETDATE()
+);
+
+-- Tabla de Ingredientes Adicionales
+CREATE TABLE IngredientesAdicionales
+(
+	IngredienteId INT PRIMARY KEY IDENTITY(1,1),
+	NombreIngrediente NVARCHAR(50) NOT NULL UNIQUE,
+	PrecioIngrediente INT NOT NULL,
+	Activo BIT DEFAULT 1,
+	FechaCreacion DATETIME DEFAULT GETDATE()
+);
+
+-- Tabla de Clientes
+CREATE TABLE Clientes
+(
+	ClienteId INT PRIMARY KEY IDENTITY(1,1),
+	NombreCliente NVARCHAR(100) NOT NULL,
+	Telefono NVARCHAR(20) NOT NULL,
+	Activo BIT DEFAULT 1,
+	FechaCreacion DATETIME DEFAULT GETDATE()
+);
+
+-- Tabla Principal de Pedidos
+CREATE TABLE Pedidos
+(
+	PedidoId INT PRIMARY KEY IDENTITY(1,1),
+	ClienteId INT NOT NULL,
+	TamanoId INT NOT NULL,
+	MasaId INT NOT NULL,
+	EsDelivery BIT DEFAULT 0,
+	AplicaConvenioEstudiante BIT DEFAULT 0,
+
+	-- Cálculos
+	PrecioBaseTamano INT NOT NULL,
+	RecargoMasa INT NOT NULL,
+	CostoIngredientes INT NOT NULL,
+	SubtotalPizza INT NOT NULL,
+	MontoDescuento INT DEFAULT 0,
+	CostoDelivery INT DEFAULT 0,
+	NetoAfecto INT NOT NULL,
+	MontoIva INT NOT NULL,
+	TotalPagar INT NOT NULL,
+
+	-- Auditoria
+	FechaCreacion DATETIME DEFAULT GETDATE(),
+	FechaEntrega DATETIME NULL,
+	Estado NVARCHAR(20) DEFAULT 'Pendiente', -- Pendiente, Preparando, Listo, Entregado, Cancelado
+
+	FOREIGN KEY (ClienteId) REFERENCES Clientes(ClienteId),
+	FOREIGN KEY (TamanoId) REFERENCES Tamanos(TamanoId),
+	FOREIGN KEY (MasaId) REFERENCES Masas(MasaId)
+);
+
+-- Tabla de Relación: Pedidos - Ingredientes Adicionales (muchos a muchos)
+CREATE TABLE PedidoIngredientes
+(
+	PedidoIngredienteId INT PRIMARY KEY IDENTITY(1,1),
+	PedidoId INT NOT NULL,
+	IngredienteId INT NOT NULL,
+
+	FOREIGN KEY (PedidoId) REFERENCES Pedidos(PedidoId) ON DELETE CASCADE,
+	FOREIGN KEY (IngredienteId) REFERENCES IngredientesAdicionales(IngredienteId),
+	UNIQUE (PedidoId, IngredienteId)
+);
+
+-- ============================================================================
+-- 3. INSERTAR DATOS INICIALES
+-- ============================================================================
+
+-- Datos iniciales de Tamaños
+INSERT INTO Tamanos (TamanoNombre, PrecioBaseTamano) VALUES
+('Pequeña', 5500),
+('Mediana', 8500),
+('Grande', 11500),
+('Extra Grande', 14500);
+
+-- Datos iniciales de Masas
+INSERT INTO Masas (MasaNombre, RecargoMasa) VALUES
+('Masa Tradicional', 0),
+('Masa Integral', 1200),
+('Masa Rellena de Queso', 2000),
+('Masa Delgada', 500);
+
+-- Datos iniciales de Ingredientes Adicionales
+INSERT INTO IngredientesAdicionales (NombreIngrediente, PrecioIngrediente) VALUES
+('Queso Extra', 800),
+('Pepperoni', 800),
+('Champiñones', 800),
+('Aceitunas', 800),
+('Tocino', 800),
+('Cebolla', 500),
+('Piña', 1000),
+('Camarones', 1500);
+
+-- ============================================================================
+-- 4. CREAR ÍNDICES PARA OPTIMIZACIÓN
+-- ============================================================================
+
+CREATE INDEX IDX_Pedidos_ClienteId ON Pedidos(ClienteId);
+CREATE INDEX IDX_Pedidos_TamanoId ON Pedidos(TamanoId);
+CREATE INDEX IDX_Pedidos_MasaId ON Pedidos(MasaId);
+CREATE INDEX IDX_Pedidos_Estado ON Pedidos(Estado);
+CREATE INDEX IDX_Pedidos_FechaCreacion ON Pedidos(FechaCreacion);
+CREATE INDEX IDX_PedidoIngredientes_PedidoId ON PedidoIngredientes(PedidoId);
+CREATE INDEX IDX_PedidoIngredientes_IngredienteId ON PedidoIngredientes(IngredienteId);
+
+-- ============================================================================
+-- 5. CREAR VISTAS ÚTILES
+-- ============================================================================
+
+-- Vista para obtener información completa de un pedido
+CREATE VIEW vw_PedidosCompletos AS
+SELECT 
+	p.PedidoId,
+	c.NombreCliente,
+	c.Telefono,
+	t.TamanoNombre,
+	m.MasaNombre,
+	p.SubtotalPizza,
+	p.MontoDescuento,
+	p.CostoDelivery,
+	p.NetoAfecto,
+	p.MontoIva,
+	p.TotalPagar,
+	p.EsDelivery,
+	p.AplicaConvenioEstudiante,
+	p.Estado,
+	p.FechaCreacion
+FROM Pedidos p
+INNER JOIN Clientes c ON p.ClienteId = c.ClienteId
+INNER JOIN Tamanos t ON p.TamanoId = t.TamanoId
+INNER JOIN Masas m ON p.MasaId = m.MasaId;
+
+-- Vista para obtener ingredientes de cada pedido
+CREATE VIEW vw_PedidoDetalles AS
+SELECT 
+	p.PedidoId,
+	c.NombreCliente,
+	t.TamanoNombre,
+	m.MasaNombre,
+	ia.NombreIngrediente
+FROM Pedidos p
+INNER JOIN Clientes c ON p.ClienteId = c.ClienteId
+INNER JOIN Tamanos t ON p.TamanoId = t.TamanoId
+INNER JOIN Masas m ON p.MasaId = m.MasaId
+LEFT JOIN PedidoIngredientes pi ON p.PedidoId = pi.PedidoId
+LEFT JOIN IngredientesAdicionales ia ON pi.IngredienteId = ia.IngredienteId;
+
+-- ============================================================================
+-- 6. CREAR PROCEDIMIENTOS ALMACENADOS
+-- ============================================================================
+
+-- Procedimiento para crear un nuevo pedido
+CREATE PROCEDURE sp_CrearPedido
+	@NombreCliente NVARCHAR(100),
+	@Telefono NVARCHAR(20),
+	@TamanoId INT,
+	@MasaId INT,
+	@EsDelivery BIT = 0,
+	@AplicaConvenioEstudiante BIT = 0,
+	@PedidoId INT OUTPUT
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	BEGIN TRANSACTION;
+
+	BEGIN TRY
+		-- Insertar o obtener cliente
+		DECLARE @ClienteIdTemp INT;
+
+		SELECT @ClienteIdTemp = ClienteId 
+		FROM Clientes 
+		WHERE NombreCliente = @NombreCliente AND Telefono = @Telefono;
+
+		IF @ClienteIdTemp IS NULL
+		BEGIN
+			INSERT INTO Clientes (NombreCliente, Telefono)
+			VALUES (@NombreCliente, @Telefono);
+
+			SET @ClienteIdTemp = SCOPE_IDENTITY();
+		END
+
+		-- Obtener datos de tamaño y masa
+		DECLARE @PrecioBaseTamano INT, @RecargoMasa INT;
+
+		SELECT @PrecioBaseTamano = PrecioBaseTamano FROM Tamanos WHERE TamanoId = @TamanoId;
+		SELECT @RecargoMasa = RecargoMasa FROM Masas WHERE MasaId = @MasaId;
+
+		-- Calcular totales
+		DECLARE @CostoIngredientes INT = 0;
+		DECLARE @SubtotalPizza INT = @PrecioBaseTamano + @RecargoMasa + @CostoIngredientes;
+		DECLARE @MontoDescuento INT = CASE WHEN @AplicaConvenioEstudiante = 1 THEN CAST((@SubtotalPizza * 0.10) AS INT) ELSE 0 END;
+		DECLARE @CostoDelivery INT = CASE WHEN @EsDelivery = 1 THEN 2000 ELSE 0 END;
+		DECLARE @NetoAfecto INT = (@SubtotalPizza - @MontoDescuento) + @CostoDelivery;
+		DECLARE @MontoIva INT = CAST((@NetoAfecto * 0.19) AS INT);
+		DECLARE @TotalPagar INT = @NetoAfecto + @MontoIva;
+
+		-- Insertar pedido
+		INSERT INTO Pedidos (
+			ClienteId, TamanoId, MasaId, EsDelivery, AplicaConvenioEstudiante,
+			PrecioBaseTamano, RecargoMasa, CostoIngredientes, SubtotalPizza,
+			MontoDescuento, CostoDelivery, NetoAfecto, MontoIva, TotalPagar
+		)
+		VALUES (
+			@ClienteIdTemp, @TamanoId, @MasaId, @EsDelivery, @AplicaConvenioEstudiante,
+			@PrecioBaseTamano, @RecargoMasa, @CostoIngredientes, @SubtotalPizza,
+			@MontoDescuento, @CostoDelivery, @NetoAfecto, @MontoIva, @TotalPagar
+		);
+
+		SET @PedidoId = SCOPE_IDENTITY();
+
+		COMMIT TRANSACTION;
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION;
+		THROW;
+	END CATCH
+END;
+GO
+
+-- Procedimiento para agregar ingrediente a un pedido
+CREATE PROCEDURE sp_AgregarIngredienteAPedido
+	@PedidoId INT,
+	@IngredienteId INT
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	BEGIN TRANSACTION;
+
+	BEGIN TRY
+		-- Obtener precio del ingrediente
+		DECLARE @PrecioIngrediente INT;
+		SELECT @PrecioIngrediente = PrecioIngrediente FROM IngredientesAdicionales WHERE IngredienteId = @IngredienteId;
+
+		-- Insertar relación
+		INSERT INTO PedidoIngredientes (PedidoId, IngredienteId)
+		VALUES (@PedidoId, @IngredienteId);
+
+		-- Actualizar totales del pedido
+		UPDATE Pedidos
+		SET 
+			CostoIngredientes = CostoIngredientes + @PrecioIngrediente,
+			SubtotalPizza = SubtotalPizza + @PrecioIngrediente,
+			NetoAfecto = NetoAfecto + @PrecioIngrediente,
+			MontoIva = CAST((NetoAfecto + @PrecioIngrediente) * 0.19 AS INT),
+			TotalPagar = (NetoAfecto + @PrecioIngrediente) + CAST(((NetoAfecto + @PrecioIngrediente) * 0.19) AS INT)
+		WHERE PedidoId = @PedidoId;
+
+		COMMIT TRANSACTION;
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION;
+		THROW;
+	END CATCH
+END;
+GO
+
+-- Procedimiento para listar pedidos por estado
+CREATE PROCEDURE sp_ListarPedidosPorEstado
+	@Estado NVARCHAR(20)
+AS
+BEGIN
+	SELECT * FROM vw_PedidosCompletos WHERE Estado = @Estado;
+END;
+GO
+
+-- ============================================================================
+-- FIN DEL SCRIPT
+-- ============================================================================
